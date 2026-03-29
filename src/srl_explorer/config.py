@@ -24,7 +24,7 @@ class Config:
     openai_api_key: str
     openai_model: str = "gpt-4o"
     prometheus_url: str = "http://localhost:9090"
-    yang_models_dir: Path = field(default_factory=lambda: Path("./srlinux-yang-models"))
+    yang_models_dir: Path = field(default_factory=lambda: Path("./srlinux-yang-models/srlinux-yang-models"))
     yang_cache_dir: Path = field(default_factory=lambda: Path(".cache"))
     logs_dir: Path = field(default_factory=lambda: Path("./logs"))
 
@@ -38,7 +38,7 @@ def get_config() -> Config:
         openai_api_key=api_key,
         openai_model=os.environ.get("OPENAI_MODEL", "gpt-4o"),
         prometheus_url=os.environ.get("PROMETHEUS_URL", "http://localhost:9090"),
-        yang_models_dir=Path(os.environ.get("YANG_MODELS_DIR", "./srlinux-yang-models")),
+        yang_models_dir=Path(os.environ.get("YANG_MODELS_DIR", "./srlinux-yang-models/srlinux-yang-models")),
         yang_cache_dir=Path(os.environ.get("YANG_CACHE_DIR", ".cache")),
         logs_dir=Path(os.environ.get("SRL_EXPLORER_LOGS_DIR", "./logs")),
     )

@@ -67,7 +67,7 @@ def _compute_hash(yang_dir: Path) -> str:
     h = hashlib.sha256()
     for f in yang_files:
         h.update(f.encode())
-        h.update(str(os.path.getmtime(f)).encode())
+        h.update(str(os.path.getsize(f)).encode())
     return h.hexdigest()[:16]
 
 

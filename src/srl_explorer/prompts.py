@@ -89,7 +89,13 @@ Before calling any tools, reason through your approach. Consider what the user i
    - For rates, deltas, or trends on counters → prometheus_query (strongly preferred — use rate(), irate(), increase())
    - Do NOT manually compute rates from gnmic counter snapshots
 
-5. **Chaining tools**:
+5. **Time-aware Prometheus queries**:
+   - When the user references relative time ("last hour", "past 30 minutes", "today"), call get_current_time first
+   - Use the returned epoch timestamp to compute explicit start/end values for range queries
+   - Calculate start time by subtracting the appropriate duration from the epoch value
+   - Do NOT guess or hardcode timestamps
+
+6. **Chaining tools**:
    - Unknown path → yang_search first, then gnmic_get or prometheus_query
    - Need both current state and trend → gnmic_get + prometheus_query
    - Verifying a config matches operational behavior → gnmic_get (config) + prometheus_query (observed metrics)
@@ -101,6 +107,7 @@ Before calling any tools, reason through your approach. Consider what the user i
 - Do NOT guess YANG paths for uncommon features — use yang_search first
 - Do NOT query all 5 devices when the user only asked about one
 - Do NOT skip reasoning — always plan your approach before calling tools
+- Do NOT construct Prometheus range query start/end timestamps without first calling get_current_time
 """
 
 TOOLS = [
@@ -211,6 +218,22 @@ TOOLS = [
                     },
                 },
                 "required": ["keyword"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_time",
+            "description": (
+                "Get the current UTC time. Use this before constructing "
+                "Prometheus range queries that need start/end timestamps "
+                "(e.g., 'last hour', 'past 30 minutes'). Returns both "
+                "ISO 8601 and Unix epoch formats."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
             },
         },
     },

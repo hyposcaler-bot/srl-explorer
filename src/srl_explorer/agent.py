@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 from openai import AsyncOpenAI
@@ -27,7 +28,7 @@ class Agent:
         on_reasoning: Callable[[str], None] | None = None,
         logger: TurnLogger | None = None,
     ) -> None:
-        self.client = AsyncOpenAI(api_key=config.openai_api_key)
+        self.client = AsyncOpenAI(api_key=config.openai_api_key, max_retries=3)
         self.model = config.openai_model
         self.config = config
         self.yang_index = yang_index
@@ -64,10 +65,11 @@ class Agent:
                     msg, response.usage, choice.finish_reason, self.model
                 )
 
-            # Extract reasoning from first LLM response
-            if is_first_response and msg.content:
+            # Extract reasoning from first LLM response and strip tags
+            content = msg.content
+            if is_first_response and content:
                 m = re.search(
-                    r"<reasoning>(.*?)</reasoning>", msg.content, re.DOTALL
+                    r"<reasoning>(.*?)</reasoning>", content, re.DOTALL
                 )
                 if m:
                     reasoning_text = m.group(1).strip()
@@ -75,10 +77,13 @@ class Agent:
                         self.on_reasoning(reasoning_text)
                     if self.logger:
                         self.logger.log_reasoning(reasoning_text)
+                    content = re.sub(
+                        r"<reasoning>.*?</reasoning>\s*", "", content, flags=re.DOTALL
+                    ).strip() or None
                 is_first_response = False
 
             # Serialize assistant message into history
-            msg_dict: dict[str, Any] = {"role": "assistant", "content": msg.content}
+            msg_dict: dict[str, Any] = {"role": "assistant", "content": content}
             if msg.tool_calls:
                 msg_dict["tool_calls"] = [
                     {
@@ -96,7 +101,7 @@ class Agent:
             if choice.finish_reason == "stop":
                 if self.logger:
                     self.logger.update_session_summary()
-                return msg.content or ""
+                return content or ""
 
             if msg.tool_calls:
                 for tc in msg.tool_calls:
@@ -148,7 +153,7 @@ class Agent:
             # Unexpected finish reason — return whatever content we have
             if self.logger:
                 self.logger.update_session_summary()
-            return msg.content or ""
+            return content or ""
 
     async def _execute_tool(self, name: str, args: dict) -> Any:
         if name == "gnmic_get":
@@ -191,5 +196,12 @@ class Agent:
                 }
                 for r in results
             ]
+
+        if name == "get_current_time":
+            now = datetime.now(timezone.utc)
+            return {
+                "utc_iso": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "epoch": int(now.timestamp()),
+            }
 
         raise ValueError(f"Unknown tool: {name}")

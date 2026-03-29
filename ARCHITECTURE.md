@@ -4,7 +4,7 @@
 
 srl-explorer is a Python CLI agent that lets network engineers query Nokia SR Linux telemetry using natural language. Instead of remembering gNMI paths, PromQL syntax, or YANG model structure, the user types a question in English and the agent figures out which tools to call, in what order, and how to synthesize the results.
 
-The core approach is an LLM agent loop: user input goes to OpenAI (GPT-4o by default), which has access to three tools -- live gNMI queries via gnmic, historical metrics via Prometheus, and YANG model search for path discovery. The LLM reasons about the question, calls tools (potentially chaining multiple calls), and produces a final Markdown answer rendered in the terminal.
+The core approach is an LLM agent loop: user input goes to OpenAI (GPT-4o by default), which has access to four tools -- live gNMI queries via gnmic, historical metrics via Prometheus, YANG model search for path discovery, and a time utility for accurate Prometheus range queries. The LLM reasons about the question, calls tools (potentially chaining multiple calls), and produces a final Markdown answer rendered in the terminal.
 
 The target environment is a 5-node Clos fabric lab: three leaves (leaf1-3) and two spines (spine1-2) running SR Linux.
 
@@ -149,6 +149,15 @@ Searches an in-memory index of SR Linux YANG models to discover valid gNMI paths
 
 **Return format** (from agent.py): Each result is serialized with xpath, type, yang_type, description (truncated to 200 chars), module, and keys.
 
+### get_current_time (agent.py inline)
+
+Returns the current UTC time for constructing time-aware Prometheus queries.
+
+- **Execution**: Inline in `_execute_tool` -- no external calls, returns immediately
+- **Parameters**: None
+- **Returns**: `{"utc_iso": "<ISO-8601 string>", "epoch": <unix timestamp>}`
+- **Purpose**: Ensures the LLM uses accurate timestamps for Prometheus range query start/end values when the user references relative time periods ("last hour", "past 30 minutes")
+
 ## 5. LLM Integration (prompts.py)
 
 ### System Prompt
@@ -163,13 +172,14 @@ The system prompt (`SYSTEM_PROMPT`) provides the LLM with:
 
 ### Tool Definitions
 
-Three OpenAI function calling tool definitions:
+Four OpenAI function calling tool definitions:
 
 | Tool | Required Params | Optional Params |
 |------|----------------|-----------------|
 | `gnmic_get` | `target` (enum of 5 devices), `path` | `data_type` (ALL/CONFIG/STATE/OPERATIONAL) |
 | `prometheus_query` | `query` (PromQL) | `time`, `start`, `end`, `step` |
 | `yang_search` | `keyword` | `module_filter`, `max_results` |
+| `get_current_time` | (none) | (none) |
 
 The LLM is guided to chain tools: `yang_search` to find the right path, then `gnmic_get` or `prometheus_query` to fetch the data.
 

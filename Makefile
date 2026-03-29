@@ -1,8 +1,7 @@
 # --- Configuration ---
 
 YANG_MODELS_REPO ?= https://github.com/nokia/srlinux-yang-models
-YANG_MODELS_TAG  ?= v21.6.2
-YANG_MODELS_DIR  ?= srlinux-yang-models
+YANG_MODELS_TAG  ?= v24.10.1
 
 # --- Development ---
 
@@ -12,11 +11,11 @@ setup: yang-models ## Set up local dev environment (install deps + YANG models)
 
 .PHONY: yang-models
 yang-models:      ## Clone SR Linux YANG models (if not present)
-	@if [ ! -d "$(YANG_MODELS_DIR)" ]; then \
+	@if [ ! -d "srlinux-yang-models" ]; then \
 		echo "Cloning YANG models ($(YANG_MODELS_TAG))..."; \
-		git clone -b $(YANG_MODELS_TAG) --depth 1 $(YANG_MODELS_REPO) $(YANG_MODELS_DIR); \
+		git clone -b $(YANG_MODELS_TAG) --depth 1 $(YANG_MODELS_REPO); \
 	else \
-		echo "YANG models already present at $(YANG_MODELS_DIR)"; \
+		echo "YANG models already present"; \
 	fi
 
 .PHONY: run

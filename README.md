@@ -63,6 +63,8 @@ cp .env.example .env
 | `YANG_CACHE_DIR` | `.cache` | Cache directory for parsed YANG index |
 | `SRL_EXPLORER_LOGS_DIR` | `./logs` | Directory for session logs |
 
+> **Note:** `.env.example` includes only the three most commonly configured variables. `YANG_MODELS_DIR`, `YANG_CACHE_DIR`, and `SRL_EXPLORER_LOGS_DIR` have sensible defaults and only need to be set if you want to override them.
+
 ## Usage
 
 Start the REPL:

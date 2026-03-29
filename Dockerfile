@@ -20,19 +20,20 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project
 
 # Clone YANG models
-ARG YANG_MODELS_TAG=v21.6.2
-RUN git clone -b ${YANG_MODELS_TAG} --depth 1 https://github.com/nokia/srlinux-yang-models srlinux-yang-models \
+ARG YANG_MODELS_TAG=v24.10.1
+RUN git clone -b ${YANG_MODELS_TAG} --depth 1 https://github.com/nokia/srlinux-yang-models \
     && rm -rf srlinux-yang-models/.git
 
 # Copy source and install the project
 COPY src/ src/
 RUN uv sync --frozen
 
+# Pre-build YANG index so startup is instant
+ENV PATH="/app/.venv/bin:$PATH"
+RUN python -c "from srl_explorer.tools.yang import build_or_load_yang_index; from pathlib import Path; build_or_load_yang_index(Path('./srlinux-yang-models/srlinux-yang-models'), Path('.cache'))"
+
 # --- Runtime stage ---
 FROM python:3.12-slim
-
-# Copy uv
-COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
 
 # Copy gnmic
 COPY --from=builder /usr/local/bin/gnmic /usr/local/bin/gnmic
@@ -41,14 +42,13 @@ WORKDIR /app
 
 # Copy venv and project files
 COPY --from=builder /app/.venv .venv
-COPY --from=builder /app/pyproject.toml .
-COPY --from=builder /app/uv.lock .
 COPY --from=builder /app/src src
 COPY --from=builder /app/srlinux-yang-models srlinux-yang-models
+COPY --from=builder /app/.cache .cache
 
 # .env passed at runtime via --env-file
 # logs/ written at runtime, mount via -v to persist
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-ENTRYPOINT ["uv", "run", "srl-explorer"]
+ENTRYPOINT ["srl-explorer"]
