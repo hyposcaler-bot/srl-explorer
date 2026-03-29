@@ -30,6 +30,7 @@ The agent shows its reasoning (the `>>>` lines) and tool calls in real time befo
 
 ## Prerequisites
 
+- a Linux enviroment, it can be made to work on OSX or WSL but the user is on thier own in that regard.
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) package manager
 - [containerlab](https://containerlab.dev/install/) for running the lab topology
