@@ -1,0 +1,23 @@
+[project]
+name = "srl-explorer"
+version = "0.1.0"
+description = "CLI agent for querying Nokia SR Linux network telemetry"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.40",
+    "httpx>=0.27",
+    "prompt-toolkit>=3.0",
+    "rich>=13.0",
+    "pyang>=2.6",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+srl-explorer = "srl_explorer.cli:main"
+
+[dependency-groups]
+dev = ["ruff", "pip-audit"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
