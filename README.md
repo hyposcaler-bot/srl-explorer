@@ -2,7 +2,7 @@
 
 AI-powered CLI so easy a manager could do it.  
 
-That uses AI to query Nokia SR Linux network telemetry using natural language as the primary interface.
+Demonstrates an REPL based AI agent for querying Nokia SR Linux network telemetry using natural language as the primary interface.
 
 ## What it does
 
