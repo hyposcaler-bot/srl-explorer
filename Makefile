@@ -3,6 +3,9 @@
 YANG_MODELS_REPO ?= https://github.com/nokia/srlinux-yang-models
 YANG_MODELS_TAG  ?= v24.10.1
 
+TELEMETRY_LAB_REPO ?= https://github.com/srl-labs/srl-telemetry-lab
+TELEMETRY_LAB_DIR  ?= srl-telemetry-lab
+
 # --- Development ---
 
 .PHONY: check-prereqs
@@ -28,7 +31,7 @@ check-prereqs:    ## Check that required tools are installed
 	echo "All prerequisites found."
 
 .PHONY: setup
-setup: check-prereqs yang-models ## Set up local dev environment (install deps + YANG models)
+setup: check-prereqs yang-models lab ## Set up local dev environment (install deps + YANG models + lab)
 	@uv sync
 
 .PHONY: yang-models
@@ -39,6 +42,27 @@ yang-models:      ## Clone SR Linux YANG models (if not present)
 	else \
 		echo "YANG models already present"; \
 	fi
+
+.PHONY: lab
+lab:              ## Clone srl-telemetry-lab (if not present)
+	@if [ ! -d "$(TELEMETRY_LAB_DIR)" ]; then \
+		echo "Cloning srl-telemetry-lab..."; \
+		git clone $(TELEMETRY_LAB_REPO); \
+	else \
+		echo "srl-telemetry-lab already present"; \
+	fi
+
+.PHONY: lab-up
+lab-up: setup lab ## Start the telemetry lab (requires containerlab)
+	cd $(TELEMETRY_LAB_DIR) && containerlab deploy --reconfigure
+
+.PHONY: lab-down
+lab-down:         ## Stop the telemetry lab
+	cd $(TELEMETRY_LAB_DIR) && containerlab destroy
+
+.PHONY: lab-traffic
+lab-traffic:      ## Generate traffic between lab nodes
+	docker exec -d client1 bash /config/traffic.sh
 
 .PHONY: run
 run:              ## Run srl-explorer locally

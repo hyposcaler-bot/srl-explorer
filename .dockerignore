@@ -8,3 +8,4 @@ __pycache__/
 node_modules/
 docs/
 srlinux-yang-models/
+srl-telemetry-lab/

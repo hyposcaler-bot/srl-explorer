@@ -23,6 +23,7 @@ Use `uv`, never `pip`. Dependencies are managed in `pyproject.toml`. Do not add 
 - Source lives in `src/srl_explorer/` using the src layout
 - Tests live in `tests/` and use pytest + pytest-asyncio
 - `srlinux-yang-models/` is a cloned external repo. Never modify files in it.
+- `srl-telemetry-lab/` is a cloned external repo like `srlinux-yang-models/`. Never modify files in it.
 - `.cache/`, `logs/`, `.env` should Never be commited.
 
 ## Code style
@@ -30,6 +31,8 @@ Use `uv`, never `pip`. Dependencies are managed in `pyproject.toml`. Do not add 
 - This is an async codebase. New tools must be async functions.
 - Keep comments short. One or two lines max.
 - Type hints on function signatures. Use `from __future__ import annotations`.
+- This is a teaching codebase, prefer simplicy and readability over complexity
+- Try to avoid code that might trigger pylance complaints
 
 ## Test patterns
 

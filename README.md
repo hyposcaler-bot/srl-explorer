@@ -35,6 +35,16 @@ The only thing between your code and the model is the OpenAI SDK. No framework, 
 
 Once you understand the loop, frameworks make a lot more sense.
 
+### It doesn't always get the correct answers
+
+Note that it does still get things wrong, as an example the tool often has difficult translating the IP addreses used to peer in the overlay into host names, but does well with turning the IP addresses provided in the topology into hostnames.  this largely boils down to a lack of info in the context or lack of tools.
+
+The overlay peer IPs (10.0.2.1, 10.0.2.2) are loopback addresses that don't appear anywhere in the system prompt's topology section, which only lists management IPs (172.80.80.x) and interface interconnections. The model has no mapping from loopback IP to device name, and no tool to discover one (no IPAM, no DNS, no reverse lookup). It could theoretically brute-force it by querying /system/name on all five devices and cross-referencing router IDs, but that's a lot to expect without explicit guidance.
+
+To see this, compare the results you get from 
+
+"show me the names of all the BGP peers on leaf1" with the results you get from "Pull the configuration from all devices build a mapping of all IP addresses present on the switches to names of the switches, then using that list provide me the names of all the BGP peers in established on leaf1"
+
 ### Intentional simplifications
 
 This repo makes choices that favor learning over production readiness:
@@ -52,21 +62,7 @@ srl-explorer is a Python CLI agent with an interactive REPL. You ask questions a
 - **Prometheus** -- historical metrics and time-series trends
 - **YANG model search** -- path discovery across 488+ SR Linux YANG models
 
-```
-srl> show me BGP neighbors on leaf1
-
-  >>> The user is asking about current BGP neighbor state on leaf1.
-  >>> This is live operational data, so I'll use gnmic_get.
-  >>> I know the path: /network-instance[name=default]/protocols/bgp/neighbor
-  >>> gnmic_get(target=leaf1, path=/network-instance[name=default]/protocols/bgp/neighbor)
-
-Leaf1 has 2 established BGP neighbors in network-instance "default":
-
-| Peer Address | AS | State | Received Routes |
-|---|---|---|---|
-| 192.168.11.1 | 201 | established | 5 |
-| 192.168.12.1 | 202 | established | 5 |
-```
+![Example session](docs/blog/example_use.png)
 
 The agent shows its reasoning (the `>>>` lines) and tool calls in real time before presenting the final answer.
 
@@ -77,7 +73,6 @@ The agent shows its reasoning (the `>>>` lines) and tool calls in real time befo
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) package manager
 - [containerlab](https://containerlab.dev/install/) for running the lab topology
 - [gnmic](https://gnmic.openconfig.net/install/) CLI installed and on PATH
-- A running [srl-telemetry-lab](https://github.com/srl-labs/srl-telemetry-lab) environment
 - OpenAI API key
 
 ## Installation
@@ -86,9 +81,15 @@ The agent shows its reasoning (the `>>>` lines) and tool calls in real time befo
 git clone https://github.com/hyposcaler/srl-explorer.git
 cd srl-explorer
 make setup
+make lab-up
+make run
 ```
 
-`make setup` clones the SR Linux YANG models (if not already present) and installs Python dependencies. The YANG models version defaults to `v24.10.1` — override with `make setup YANG_MODELS_TAG=<version>`.
+`make setup` clones the SR Linux YANG models and the srl-telemetry-lab (if not already present) and installs Python dependencies. `make lab-up` deploys the containerlab topology. `make run` starts the REPL.
+
+The YANG models version defaults to `v24.10.1` — override with `make setup YANG_MODELS_TAG=<version>`.
+
+> **Note:** containerlab requires Linux. The lab will not run on macOS or Windows natively.
 
 ## Configuration
 
@@ -171,8 +172,11 @@ Run `make` to see all available targets:
 
 | Target | Description |
 |---|---|
-| `make setup` | Install deps + clone YANG models |
+| `make setup` | Install deps + clone YANG models + clone lab |
 | `make run` | Run srl-explorer locally |
+| `make lab-up` | Start the telemetry lab (requires containerlab) |
+| `make lab-down` | Stop the telemetry lab |
+| `make lab-traffic` | Generate traffic between lab nodes |
 | `make audit` | Check dependencies for known vulnerabilities (pip-audit) |
 | `make lint` | Run linter (ruff) |
 | `make format` | Format code (ruff) |

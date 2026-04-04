@@ -20,6 +20,9 @@ logs/
 # YANG models (cloned via make setup)
 srlinux-yang-models/
 
+# Telemetry lab (cloned via make setup)
+srl-telemetry-lab/
+
 # IDE
 .vscode/
 .idea/
