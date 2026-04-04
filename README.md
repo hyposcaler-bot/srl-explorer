@@ -92,7 +92,7 @@ make run                      # launch the REPL
 
 The YANG models version defaults to `v24.10.1` — override with `make setup YANG_MODELS_TAG=<version>`.
 
-> **Note:** containerlab requires Linux. The lab will not run on macOS or Windows natively.
+> **Note:** containerlab requires Linux. The lab will will run on macOS or Windows via WLS but requires shenanigans, see [containerlab.dev]https://containerlab.dev for details..
 
 ## Configuration
 
