@@ -189,3 +189,178 @@ async def test_malformed_tool_arguments():
     assert "error" in tool_msgs[0]["content"]
 
     assert result == "ok"
+
+
+@pytest.mark.asyncio
+async def test_run_tool_call_success():
+    """_run_tool_call returns a tool message with the JSON-serialized result."""
+    agent = _make_agent()
+    agent._execute_tool = AsyncMock(return_value={"status": "ok"})
+
+    tc = _mock_tool_call("call_1", "gnmic_get", {"target": "leaf1", "path": "/system/name"})
+    msg = await agent._run_tool_call(tc)
+
+    assert msg["role"] == "tool"
+    assert msg["tool_call_id"] == "call_1"
+    assert json.loads(msg["content"]) == {"status": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_run_tool_call_error():
+    """_run_tool_call returns an error tool message when _execute_tool raises."""
+    agent = _make_agent()
+    agent._execute_tool = AsyncMock(side_effect=RuntimeError("connection refused"))
+
+    tc = _mock_tool_call("call_1", "gnmic_get", {"target": "leaf1", "path": "/x"})
+    msg = await agent._run_tool_call(tc)
+
+    assert msg["role"] == "tool"
+    parsed = json.loads(msg["content"])
+    assert "connection refused" in parsed["error"]
+
+
+@pytest.mark.asyncio
+async def test_run_tool_call_truncation():
+    """_run_tool_call truncates results larger than MAX_TOOL_RESULT_SIZE."""
+    agent = _make_agent()
+    huge = {"data": "x" * (MAX_TOOL_RESULT_SIZE + 1000)}
+    agent._execute_tool = AsyncMock(return_value=huge)
+
+    tc = _mock_tool_call("call_1", "get_current_time", {})
+    msg = await agent._run_tool_call(tc)
+
+    assert msg["content"].endswith("... [truncated, result too large]")
+    assert len(msg["content"]) < len(json.dumps(huge))
+
+
+@pytest.mark.asyncio
+async def test_run_tool_call_callbacks():
+    """on_tool_call and on_tool_result callbacks fire with correct arguments."""
+    tool_calls_log: list[tuple] = []
+    tool_results_log: list[tuple] = []
+
+    agent = _make_agent(
+        on_tool_call=lambda name, args: tool_calls_log.append((name, args)),
+        on_tool_result=lambda name, result: tool_results_log.append((name, result)),
+    )
+    agent._execute_tool = AsyncMock(return_value={"val": 1})
+
+    tc = _mock_tool_call("call_1", "gnmic_get", {"target": "leaf1", "path": "/x"})
+    await agent._run_tool_call(tc)
+
+    assert len(tool_calls_log) == 1
+    assert tool_calls_log[0] == ("gnmic_get", {"target": "leaf1", "path": "/x"})
+
+    assert len(tool_results_log) == 1
+    assert tool_results_log[0][0] == "gnmic_get"
+    assert json.loads(tool_results_log[0][1]) == {"val": 1}
+
+
+@pytest.mark.asyncio
+async def test_run_tool_call_malformed_args():
+    """Malformed JSON args produce an error tool message; on_tool_call is NOT called."""
+    tool_calls_log: list[tuple] = []
+    agent = _make_agent(
+        on_tool_call=lambda name, args: tool_calls_log.append((name, args)),
+    )
+
+    bad_tc = ChatCompletionMessageToolCall(
+        id="call_bad",
+        type="function",
+        function=Function(name="gnmic_get", arguments="{bad json"),
+    )
+    msg = await agent._run_tool_call(bad_tc)
+
+    assert msg["role"] == "tool"
+    assert "error" in msg["content"]
+    assert len(tool_calls_log) == 0
+
+
+def test_extract_reasoning_with_tags():
+    """Reasoning tags are stripped and the callback fires."""
+    captured: list[str] = []
+    agent = _make_agent(on_reasoning=lambda t: captured.append(t))
+
+    result = agent._extract_reasoning(
+        "<reasoning>Think carefully</reasoning>The answer is 42."
+    )
+
+    assert captured == ["Think carefully"]
+    assert result == "The answer is 42."
+    assert "<reasoning>" not in result
+
+
+def test_extract_reasoning_only_tags():
+    """Content that is only a reasoning block returns None."""
+    agent = _make_agent()
+    result = agent._extract_reasoning("<reasoning>Just thinking</reasoning>")
+    assert result is None
+
+
+def test_extract_reasoning_no_tags():
+    """Plain content is returned unchanged; on_reasoning is not called."""
+    captured: list[str] = []
+    agent = _make_agent(on_reasoning=lambda t: captured.append(t))
+
+    result = agent._extract_reasoning("plain text")
+
+    assert result == "plain text"
+    assert len(captured) == 0
+
+
+def test_extract_reasoning_none_input():
+    """None input returns None."""
+    agent = _make_agent()
+    assert agent._extract_reasoning(None) is None
+
+
+def test_build_assistant_message_with_tools():
+    """Message includes tool_calls list with correct structure."""
+    agent = _make_agent()
+    tc = _mock_tool_call("call_1", "gnmic_get", {"target": "leaf1", "path": "/x"})
+
+    msg = agent._build_assistant_message("thinking...", [tc])
+
+    assert msg["role"] == "assistant"
+    assert msg["content"] == "thinking..."
+    assert len(msg["tool_calls"]) == 1
+    assert msg["tool_calls"][0]["id"] == "call_1"
+    assert msg["tool_calls"][0]["type"] == "function"
+    assert msg["tool_calls"][0]["function"]["name"] == "gnmic_get"
+
+
+def test_build_assistant_message_without_tools():
+    """Message without tool calls has no tool_calls key."""
+    agent = _make_agent()
+    msg = agent._build_assistant_message("done", [])
+
+    assert msg["role"] == "assistant"
+    assert msg["content"] == "done"
+    assert "tool_calls" not in msg
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_unknown():
+    """_execute_tool raises ValueError for an unknown tool name."""
+    agent = _make_agent()
+    with pytest.raises(ValueError, match="Unknown tool"):
+        await agent._execute_tool("nonexistent", {})
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_prometheus_instant_vs_range():
+    """prometheus_query dispatches instant vs range based on start/end args."""
+    agent = _make_agent()
+
+    with patch("srl_explorer.agent.prometheus_query", new_callable=AsyncMock) as mock_instant:
+        mock_instant.return_value = {"result": []}
+        await agent._execute_tool("prometheus_query", {"query": "up"})
+        mock_instant.assert_called_once()
+
+    with patch("srl_explorer.agent.prometheus_query_range", new_callable=AsyncMock) as mock_range:
+        mock_range.return_value = {"result": []}
+        await agent._execute_tool(
+            "prometheus_query",
+            {"query": "up", "start": "2026-01-01T00:00:00Z", "end": "2026-01-01T01:00:00Z"},
+        )
+        mock_range.assert_called_once()
