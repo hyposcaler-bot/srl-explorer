@@ -183,15 +183,15 @@ class Agent:
             choice = response.choices[0]
             msg = choice.message
 
-            if self.logger:
-                self.logger.log_llm_response(
-                    msg, response.usage, choice.finish_reason, self.model
-                )
-
             content = msg.content
             if is_first_response and content:
                 content = self._extract_reasoning(content)
                 is_first_response = False
+
+            if self.logger:
+                self.logger.log_llm_response(
+                    msg, response.usage, choice.finish_reason, self.model
+                )
 
             tool_calls = [
                 tc for tc in (msg.tool_calls or [])

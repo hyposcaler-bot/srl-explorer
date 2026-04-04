@@ -45,9 +45,11 @@ COPY --from=builder /app/.venv .venv
 COPY --from=builder /app/src src
 COPY --from=builder /app/srlinux-yang-models srlinux-yang-models
 COPY --from=builder /app/.cache .cache
+RUN chmod -R a+rw .cache
 
 # .env passed at runtime via --env-file
 # logs/ written at runtime, mount via -v to persist
+# Container runs as the invoking user via --user in docker run
 
 ENV PATH="/app/.venv/bin:$PATH"
 

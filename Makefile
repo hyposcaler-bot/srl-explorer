@@ -29,7 +29,7 @@ check-prereqs:    ## Check that required tools are installed
 
 .PHONY: setup
 setup: check-prereqs yang-models ## Set up local dev environment (install deps + YANG models)
-	uv sync
+	@uv sync
 
 .PHONY: yang-models
 yang-models:      ## Clone SR Linux YANG models (if not present)
@@ -42,29 +42,29 @@ yang-models:      ## Clone SR Linux YANG models (if not present)
 
 .PHONY: run
 run:              ## Run srl-explorer locally
-	uv run srl-explorer
+	@uv run srl-explorer
 
 .PHONY: audit
 audit:            ## Check dependencies for known vulnerabilities
-	uv run pip-audit --skip-editable
+	@uv run pip-audit --skip-editable
 
 .PHONY: lint
 lint:             ## Run linter (ruff check)
-	uv run ruff check src/
+	@uv run ruff check src/
 
 .PHONY: format
 format:           ## Format code (ruff format)
-	uv run ruff format src/
+	@uv run ruff format src/
 
 .PHONY: test
 test:             ## Run tests
-	uv run pytest tests/ -v
+	@uv run pytest tests/ -v
 
 .PHONY: clean
 clean:            ## Remove caches, logs, build artifacts
-	rm -rf .cache/ logs/ dist/ build/
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find . -name "*.pyc" -delete 2>/dev/null || true
+	@rm -rf .cache/ logs/ dist/ build/
+	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@find . -name "*.pyc" -delete 2>/dev/null || true
 
 # --- Container ---
 
@@ -73,11 +73,13 @@ IMAGE_TAG  ?= latest
 
 .PHONY: docker-build
 docker-build:     ## Build the Docker container
-	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
+	@docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
 
 .PHONY: docker-run
 docker-run:       ## Run srl-explorer in a container (--network host, --env-file .env)
-	docker run -it --rm \
+	@mkdir -p logs
+	@docker run -it --rm \
+		--user $$(id -u):$$(id -g) \
 		--network host \
 		--env-file .env \
 		-v $(PWD)/logs:/app/logs \
@@ -85,7 +87,8 @@ docker-run:       ## Run srl-explorer in a container (--network host, --env-file
 
 .PHONY: docker-shell
 docker-shell:     ## Shell into the container for debugging
-	docker run -it --rm \
+	@docker run -it --rm \
+		--user $$(id -u):$$(id -g) \
 		--network host \
 		--env-file .env \
 		-v $(PWD)/logs:/app/logs \

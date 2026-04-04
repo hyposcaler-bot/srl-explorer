@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import textwrap
 from datetime import datetime, timezone
 
 from prompt_toolkit import PromptSession
@@ -8,6 +9,7 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.status import Status
 
 from srl_explorer.agent import Agent
 from srl_explorer.config import get_config
@@ -37,12 +39,27 @@ leaf1, leaf2, leaf3 (leaves) — spine1, spine2 (spines)
 """
 
 
+_spinner: Status | None = None
+
+
+def _stop_spinner() -> None:
+    global _spinner
+    if _spinner is not None:
+        _spinner.stop()
+        _spinner = None
+
+
 def _on_reasoning(text: str) -> None:
+    _stop_spinner()
+    prefix = "  >>> "
+    wrap_width = max(console.width - len(prefix), 40)
     for line in text.strip().splitlines():
-        console.print(f"  [dim]>>> {line}[/dim]")
+        for wrapped in textwrap.wrap(line, width=wrap_width) or [""]:
+            console.print(f"[dim]{prefix}{wrapped}[/dim]")
 
 
 def _on_tool_call(name: str, args: dict) -> None:
+    _stop_spinner()
     args_str = ", ".join(f"{k}={v}" for k, v in args.items())
     console.print(f"  [dim]>>> {name}({args_str})[/dim]")
 
@@ -80,8 +97,9 @@ async def _run() -> None:
         logger=logger,
     )
 
+    history_file = config.logs_dir / ".srl_explorer_history"
     session: PromptSession[str] = PromptSession(
-        history=FileHistory(".srl_explorer_history"),
+        history=FileHistory(str(history_file)),
         auto_suggest=AutoSuggestFromHistory(),
     )
 
@@ -111,7 +129,11 @@ async def _run() -> None:
             continue
 
         try:
+            global _spinner
+            _spinner = console.status("[dim]Thinking...[/dim]")
+            _spinner.start()
             response = await agent.chat(text)
+            _stop_spinner()
             console.print()
             console.print(Markdown(response))
             console.print()

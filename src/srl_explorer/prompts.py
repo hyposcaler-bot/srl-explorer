@@ -60,7 +60,7 @@ Note: Interface names in Prometheus use "e1-N" format (e.g., e1-49), NOT "ethern
 
 ## Reasoning
 
-Before calling any tools, always first respond with your reasoning about how to answer the question. Wrap your reasoning plan in <reasoning>...</reasoning> tags. Consider:
+Before calling any tools, you *MUST* always first respond with your reasoning about how to answer the question. Wrap your reasoning plan in <reasoning>...</reasoning> tags. Consider:
 - Is this asking about current/live state, or historical trends?
 - Do I know the exact YANG path, or do I need to discover it first?
 - Which device(s) need to be queried?
