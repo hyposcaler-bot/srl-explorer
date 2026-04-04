@@ -140,6 +140,7 @@ class Agent:
 
                     result = None
                     error = None
+                    t0 = time.monotonic()
                     try:
                         args = json.loads(tc.function.arguments)
 
@@ -149,14 +150,13 @@ class Agent:
                         if self.logger:
                             self.logger.log_tool_call(tc.id, name, args)
 
-                        t0 = time.monotonic()
                         result = await self._execute_tool(name, args)
                         result_str = json.dumps(result, default=str)
-                        duration_ms = int((time.monotonic() - t0) * 1000)
                     except Exception as e:
                         error = str(e)
                         result_str = json.dumps({"error": error})
-                        duration_ms = 0
+
+                    duration_ms = int((time.monotonic() - t0) * 1000)
 
                     if self.logger:
                         self.logger.log_tool_result(
